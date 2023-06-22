@@ -1,8 +1,6 @@
 import { FastifyInstance } from "fastify";
+import { recipesController } from "../controllers/recipesController";
 
 export async function recipesRoutes (app: FastifyInstance)  {
-  app.get('/', async (request, reply) => {
-    console.log('recipes')
-    return reply.status(200).send('buscar recipes')
-  })
+  app.get('/', recipesController.create)
 }

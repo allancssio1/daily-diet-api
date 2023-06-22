@@ -1,8 +1,6 @@
 import { FastifyInstance } from "fastify";
+import { usersController } from "../controllers/usersController";
 
 export async function usersRoutes (app: FastifyInstance)  {
-  app.get('/', async (request, reply) => {
-    console.log('eu')
-    return reply.status(200).send('eu aqui')
-  })
+  app.post('/create', usersController.create)
 }
