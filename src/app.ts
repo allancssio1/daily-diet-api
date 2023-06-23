@@ -5,8 +5,8 @@ import { recipesRoutes } from "./routes/recipesRoutes";
 export const app = fastify()
 
 app.register(usersRoutes, {
-  prefix: 'user'
+  prefix: 'users'
 })
 app.register(recipesRoutes, {
-  prefix: 'recipe'
+  prefix: 'recipes'
 })
