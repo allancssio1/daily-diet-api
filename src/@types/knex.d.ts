@@ -5,16 +5,18 @@ declare module 'knex/types/tables' {
   export interface Tables {
     users: {
       id: string
-      name: number
+      name: string
       email: string
       created_at: string
+      session_id?: string
     }
     recipes: {
       id: string
-      name: number
-      description: string
+      name: string
+      description?: string
       created_at: string
-      userId: string
+      user_id: string
+      diet_conform: boolean
     }
   }
 }
