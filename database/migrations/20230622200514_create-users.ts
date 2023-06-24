@@ -4,9 +4,9 @@ export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable('users', (table) => {
     table.uuid('id').primary()
     table.text('name').notNullable()
-    table.text('email').notNullable()
+    table.text('email').unique().notNullable()
     table.timestamp('created_at').defaultTo(knex.fn.now()).notNullable()
-    table.uuid('session_id').after('id').index()
+    table.uuid('session_id').unique().after('id').index()
   })
 }
 
