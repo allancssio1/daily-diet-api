@@ -3,10 +3,11 @@ import { checkSessionIdExists } from '../middlewares/checkSessionIdExists'
 import { knexDb } from "../dbConfig";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
+import { checkUserExistsBySessioId } from "../middlewares/checkUserExistsBySessioId";
 
 export async function recipesRoutes (app: FastifyInstance)  {
   app.post('/create', {
-    preHandler: [checkSessionIdExists]
+    preHandler: [checkSessionIdExists, checkUserExistsBySessioId]
   }, async (request, reply) => {
     const createRecipesBodySchema = z.object({
       name: z.string().min(2, {message: 'name must be at least two characters long.'}),
@@ -18,39 +19,62 @@ export async function recipesRoutes (app: FastifyInstance)  {
       name, description, diet_conform
     } = createRecipesBodySchema.parse(request.body)
 
-    const {sessionId} = request.cookies
-    const userBySessioId = await knexDb('users')
-      .where('session_id', sessionId)
-      .first()
-
-    if(!userBySessioId) return reply.status(401).send("não é o usuário")
+    const querySchema = z.object({
+      userId: z.string().uuid({message: "Recipe id isn't valid!"})
+    })
+    const {userId} = querySchema.parse(request.query)
+    
 
     await knexDb('recipes').insert({
       id: randomUUID(),
       name,
       description,
       diet_conform,
-      user_id: userBySessioId.id
+      user_id: userId
     })
     
-    return reply.status(201).send(userBySessioId)
+    return reply.status(201).send(userId)
+  })
+
+  app.get('/', {
+    preHandler: [checkSessionIdExists, checkUserExistsBySessioId]
+  }, async (request, reply) => {
+    const recipe = await knexDb('recipes').select('*')
+
+    if(!recipe) return reply.status(404).send("User not found!")
+
+    return reply.status(200).send(recipe)
+  })
+
+  app.get('/:id', {
+    preHandler: [checkSessionIdExists, checkUserExistsBySessioId]
+  }, async (request, reply) => {
+    const paramsId = z.object({
+      id: z.string().uuid({message: "Recipe id isn't valid!"})
+    })
+    const {id} = paramsId.parse(request.params)
+
+    const querySchema = z.object({
+      userId: z.string().uuid({message: "Recipe id isn't valid!"})
+    })
+    const {userId} = querySchema.parse(request.query)
+
+    const recipe = await knexDb('recipes').where('id', id).select('*')
+
+
+    if(!recipe) return reply.status(404).send("User not found!")
+
+    return reply.status(200).send(recipe)
   })
 
   app.put('/edit/:id', {
-    preHandler: [checkSessionIdExists]
+    preHandler: [checkSessionIdExists, checkUserExistsBySessioId]
   }, async (request, reply) => {
     const paramsId = z.object({
       id: z.string().uuid({message: "Recipe id isn't valid!"})
     })
 
     const {id} = paramsId.parse(request.params)
-
-    const {sessionId} = request.cookies
-    const userBySessioId = await knexDb('users')
-      .where('session_id', sessionId)
-      .first()
-
-    if(!userBySessioId) return reply.status(404).send("User not found!")
 
     const recipe = await knexDb('recipes').where('id', id).first()
 
@@ -72,7 +96,7 @@ export async function recipesRoutes (app: FastifyInstance)  {
   })
 
   app.delete('/:id', {
-    preHandler: [checkSessionIdExists]
+    preHandler: [checkSessionIdExists, checkUserExistsBySessioId]
   }, async (request, reply) => {
     const paramsId = z.object({
       id: z.string().uuid({message: "Recipe id isn't valid!"})
@@ -87,17 +111,5 @@ export async function recipesRoutes (app: FastifyInstance)  {
     await knexDb('recipes').where('id', id).delete()
     
     return reply.status(200).send('Recipe removed on database')
-  })
-
-  //TODO: essa rota é para listar todos as refeições do usuário. o id é do usuário
-  app.get('/:id', async (request, reply) => {
-    const paramsId = z.object({
-      id: z.string().uuid({message: "Recipe id isn't valid!"})
-    })
-
-    const {id} = paramsId.parse(request.params)
-    const a = await knexDb('recipes').where('id', id).select('*')
-
-    return reply.status(200).send(a)
   })
 }
