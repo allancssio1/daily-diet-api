@@ -11,7 +11,7 @@ export async function recipesRoutes (app: FastifyInstance)  {
     const createRecipesBodySchema = z.object({
       name: z.string().min(2, {message: 'name must be at least two characters long.'}),
       description: z.string().default(''),
-      diet_conform: z.boolean().refine((val) => typeof val !== 'boolean', {message: 'diet_conform needs boolean type (false or true) and is required.'})
+      diet_conform: z.boolean().refine((val) => typeof val === 'boolean', {message: 'diet_conform needs boolean type (false or true) and is required.'})
     })
 
     const {
@@ -36,7 +36,7 @@ export async function recipesRoutes (app: FastifyInstance)  {
     return reply.status(201).send(userBySessioId)
   })
 
-  app.post('/edit/:id', {
+  app.put('/edit/:id', {
     preHandler: [checkSessionIdExists]
   }, async (request, reply) => {
     const paramsId = z.object({
@@ -59,7 +59,7 @@ export async function recipesRoutes (app: FastifyInstance)  {
     const editBodySchema = z.object({
       name: z.string().min(2, {message: 'name must be at least two characters long.'}),
       description: z.string().default(''),
-      diet_conform: z.boolean().refine((val) => typeof val !== 'undefined', {message: 'diet_conform needs boolean type (false or true) and is required.'})
+      diet_conform: z.boolean().refine((val) => typeof val === 'boolean', {message: 'diet_conform needs boolean type (false or true) and is required.'})
     })
 
     const {name, description, diet_conform} = editBodySchema.parse(request.body)
@@ -69,6 +69,24 @@ export async function recipesRoutes (app: FastifyInstance)  {
     })
 
     return reply.status(201).send('Recipe updates')
+  })
+
+  app.delete('/:id', {
+    preHandler: [checkSessionIdExists]
+  }, async (request, reply) => {
+    const paramsId = z.object({
+      id: z.string().uuid({message: "Recipe id isn't valid!"})
+    })
+
+    const {id} = paramsId.parse(request.params)
+
+    const recipeFound = await knexDb('recipes').where('id', id).first()
+
+    if(!recipeFound) return reply.status(404).send('Recipe not found')
+
+    await knexDb('recipes').where('id', id).delete()
+    
+    return reply.status(200).send('Recipe removed on database')
   })
 
   //TODO: essa rota é para listar todos as refeições do usuário. o id é do usuário
