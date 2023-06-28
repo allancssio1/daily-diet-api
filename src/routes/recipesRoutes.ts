@@ -10,10 +10,10 @@ export async function recipesRoutes (app: FastifyInstance)  {
   app.post('/create', {
     preHandler: [checkSessionIdExists, checkUserExistsBySessioId]
   }, async (request, reply) => {
-    const createRecipesBodySchema = z.object({
+    const createRecipesBodySchema: any = z.object({
       name: z.string().min(2, {message: 'name must be at least two characters long.'}),
       description: z.string().default(''),
-      created_at: z.date().safeParse(new Date("2023-06-25 22:58:35")),
+      created_at: z.coerce.date(),
       diet_conform: z.boolean().refine((val) => typeof val === 'boolean', {message: 'diet_conform needs boolean type (false or true) and is required.'})
     })
 
@@ -31,7 +31,7 @@ export async function recipesRoutes (app: FastifyInstance)  {
       name,
       description,
       diet_conform,
-      created_at,
+      created_at: new Date(created_at).toISOString(),
       user_id: userId
     })
     
@@ -48,6 +48,8 @@ export async function recipesRoutes (app: FastifyInstance)  {
     let countsDietWrong = null
     let total = null
 
+    if(recipes[0].user_id !== userId) return reply.status(401).send('User unauthorized')
+
     if(diet === 'true') {
       countsDietRigth = await knexDb('recipes').where({
           user_id: userId,
@@ -62,8 +64,6 @@ export async function recipesRoutes (app: FastifyInstance)  {
     if(total){
       total = await knexDb('recipes').where('user_id', userId).count()
     }
-  
-
 
     return reply.status(200).send({
       countsDietRigth: countsDietRigth && countsDietRigth[0]["count(*)"],
@@ -86,10 +86,11 @@ export async function recipesRoutes (app: FastifyInstance)  {
     })
     const {userId} = querySchema.parse(request.query)
 
-    const recipe = await knexDb('recipes').where('id', id).select('*')
-
+    const recipe = await knexDb('recipes').where('id', id).first()
 
     if(!recipe) return reply.status(404).send("User not found!")
+    
+    if(recipe.user_id !== userId) return reply.status(401).send('User unauthorized')
 
     return reply.status(200).send(recipe)
   })
@@ -102,21 +103,26 @@ export async function recipesRoutes (app: FastifyInstance)  {
     })
 
     const {id} = paramsId.parse(request.params)
+    const {userId} = request.query
 
     const recipe = await knexDb('recipes').where('id', id).first()
 
     if(!recipe) return reply.status(404).send("Recipe not found!")
 
+    if(recipe.user_id !== userId) return reply.status(401).send('User unauthorized')
+
     const editBodySchema = z.object({
       name: z.string().min(2, {message: 'name must be at least two characters long.'}),
       description: z.string().default(''),
+      created_at: z.coerce.date(),
       diet_conform: z.boolean().refine((val) => typeof val === 'boolean', {message: 'diet_conform needs boolean type (false or true) and is required.'})
     })
 
-    const {name, description, diet_conform} = editBodySchema.parse(request.body)
+    const {name, description, diet_conform, created_at} = editBodySchema.parse(request.body)
 
     await knexDb('recipes').where('id', id).update({
-      name, description, diet_conform
+      name, description, diet_conform, 
+      created_at: new Date(created_at).toISOString(),
     })
 
     return reply.status(201).send('Recipe updates')
@@ -130,10 +136,13 @@ export async function recipesRoutes (app: FastifyInstance)  {
     })
 
     const {id} = paramsId.parse(request.params)
+    const {userId} = request.query
 
     const recipeFound = await knexDb('recipes').where('id', id).first()
 
     if(!recipeFound) return reply.status(404).send('Recipe not found')
+
+    if(recipeFound.user_id !== userId) return reply.status(401).send('User unauthorized')
 
     await knexDb('recipes').where('id', id).delete()
     
