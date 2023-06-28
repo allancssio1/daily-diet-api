@@ -4,6 +4,7 @@ import { knexDb } from "../dbConfig";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { checkUserExistsBySessioId } from "../middlewares/checkUserExistsBySessioId";
+import { Recipes } from "../types/recipes";
 
 export async function recipesRoutes (app: FastifyInstance)  {
   app.post('/create', {
@@ -12,24 +13,25 @@ export async function recipesRoutes (app: FastifyInstance)  {
     const createRecipesBodySchema = z.object({
       name: z.string().min(2, {message: 'name must be at least two characters long.'}),
       description: z.string().default(''),
+      created_at: z.date().safeParse(new Date("2023-06-25 22:58:35")),
       diet_conform: z.boolean().refine((val) => typeof val === 'boolean', {message: 'diet_conform needs boolean type (false or true) and is required.'})
     })
 
     const {
-      name, description, diet_conform
+      name, description, diet_conform, created_at
     } = createRecipesBodySchema.parse(request.body)
 
     const querySchema = z.object({
       userId: z.string().uuid({message: "Recipe id isn't valid!"})
     })
     const {userId} = querySchema.parse(request.query)
-    
 
     await knexDb('recipes').insert({
       id: randomUUID(),
       name,
       description,
       diet_conform,
+      created_at,
       user_id: userId
     })
     
@@ -39,11 +41,36 @@ export async function recipesRoutes (app: FastifyInstance)  {
   app.get('/', {
     preHandler: [checkSessionIdExists, checkUserExistsBySessioId]
   }, async (request, reply) => {
-    const recipe = await knexDb('recipes').select('*')
+    const {diet,userId} = request.query
 
-    if(!recipe) return reply.status(404).send("User not found!")
+    let recipes: Recipes[] = await knexDb('recipes').where('user_id', userId).select('*')
+    let countsDietRigth = null
+    let countsDietWrong = null
+    let total = null
 
-    return reply.status(200).send(recipe)
+    if(diet === 'true') {
+      countsDietRigth = await knexDb('recipes').where({
+          user_id: userId,
+        }).count()
+    }
+    if(diet==='false') {
+       countsDietWrong = await knexDb('recipes').where({
+        user_id: userId,
+        diet_conform: false
+      }).count()
+    }
+    if(total){
+      total = await knexDb('recipes').where('user_id', userId).count()
+    }
+  
+
+
+    return reply.status(200).send({
+      countsDietRigth: countsDietRigth && countsDietRigth[0]["count(*)"],
+      countsDietWrong: countsDietWrong && countsDietWrong[0]["count(*)"],
+      total: total && total[0]["count(*)"],
+      recipes
+    })
   })
 
   app.get('/:id', {

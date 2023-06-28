@@ -2,7 +2,6 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { knexDb } from "../dbConfig";
-import { checkSessionIdExists } from "../middlewares/checkSessionIdExists";
 
 export async function usersRoutes (app: FastifyInstance)  {
   app.post('/create', async (request, reply) => {
@@ -30,7 +29,7 @@ export async function usersRoutes (app: FastifyInstance)  {
 
     return reply.status(201).send(session_id)
   })
-
+  // TODO: esta rota era so para ver se dava para atualizar a session do usuário
   app.post('/login', async (request, reply) => {
     const loginUserSchema = z.object({
       email: z.string()
